@@ -2,6 +2,9 @@
 
 describe("Share Location", () => {
   beforeEach(() => {
+    cy.fixture("user-location.json").then((data)=>{
+      this.data=data;
+  })
     cy.visit("/");
   });
 
@@ -22,13 +25,25 @@ describe("Share Location", () => {
   });
 
   it("should fetch the user location", () => {
+    cy.fixture('user-location.json').as('userLocation');
     cy.window().then((win) =>
       cy
-        .spy(win.navigator.geolocation, "getCurrentPosition")
+        .stub(win.navigator.geolocation, "getCurrentPosition")
         .as("getCurrentPosition")
+        .callsFake((cb) => {
+          setTimeout(() => {
+            cb({
+              coords : {
+                latitude: 37.5,
+                longtitude: 48.01,
+              },
+            });
+          }, 100);
+        })
     );
     cy.get('[data-cy="get-loc-btn"]').click();
     cy.get("@getCurrentPosition").should("have.been.called");
+    cy.get('[data-cy="get-loc-btn"]').should("not.have.attr", "disabled");
     cy.get('[data-cy="actions"]')
       .should("be.visible")
       .and("contain", "Location fetched!");
@@ -66,4 +81,11 @@ describe("Share Location", () => {
         "Your browser or permission settings do not allow location fetching"
       );
   });
+
+
+  
+
+
+
+
 });
