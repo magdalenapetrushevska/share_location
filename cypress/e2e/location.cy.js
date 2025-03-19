@@ -2,9 +2,6 @@
 
 describe("Share Location", () => {
   beforeEach(() => {
-    cy.fixture("user-location.json").then((data)=>{
-      this.data=data;
-  })
     cy.visit("/");
   });
 
@@ -25,7 +22,7 @@ describe("Share Location", () => {
   });
 
   it("should fetch the user location", () => {
-    cy.fixture('user-location.json').as('userLocation');
+    cy.fixture("user-locations.json").as("userLocation");
     cy.window().then((win) =>
       cy
         .stub(win.navigator.geolocation, "getCurrentPosition")
@@ -33,9 +30,9 @@ describe("Share Location", () => {
         .callsFake((cb) => {
           setTimeout(() => {
             cb({
-              coords : {
+              coords: {
                 latitude: 37.5,
-                longtitude: 48.01,
+                longitude: 48.01,
               },
             });
           }, 100);
@@ -43,7 +40,7 @@ describe("Share Location", () => {
     );
     cy.get('[data-cy="get-loc-btn"]').click();
     cy.get("@getCurrentPosition").should("have.been.called");
-    cy.get('[data-cy="get-loc-btn"]').should("not.have.attr", "disabled");
+    cy.get('[data-cy="get-loc-btn"]').should("not.exist");
     cy.get('[data-cy="actions"]')
       .should("be.visible")
       .and("contain", "Location fetched!");
@@ -82,10 +79,51 @@ describe("Share Location", () => {
       );
   });
 
+  it("should share a location URL", () => {
+    cy.clock(); // Control time
+    cy.window().then((win) =>
+      cy
+        .stub(win.navigator.geolocation, "getCurrentPosition")
+        .as("getCurrentPosition")
+        .callsFake((cb) => {
+          setTimeout(() => {
+            cb({
+              coords: {
+                latitude: 37.5,
+                longitude: 48.01, // Fixed typo
+              },
+            });
+          }, 100);
+        })
+    );
 
-  
+    cy.window().then((win) =>
+      cy
+        .stub(win.navigator.clipboard, "writeText")
+        .as("saveToClipboard")
+        .resolves()
+    );
 
+    cy.window().then((win) =>
+      cy.spy(win.localStorage, "setItem").as("storeLocation")
+    );
+    cy.window().then((win) =>
+      cy.spy(win.localStorage, "getItem").as("getStoredLocation")
+    );
 
+    cy.get('[data-cy="name-input"]').type("Magdalena");
+    cy.get('[data-cy="get-loc-btn"]').click();
 
+    cy.tick(100); // Advance time to trigger the geolocation callback
 
+    cy.get('[data-cy="share-loc-btn"]').click();
+    cy.get("@saveToClipboard").should("have.been.called");
+    cy.get("@saveToClipboard").should(
+      "have.been.calledWithMatch",
+      new RegExp(`37.5.*48.01.*${encodeURI("Magdalena")}`) // Fixed typo and regex
+    );
+
+    cy.get("@storeLocation").should("have.been.called");
+    cy.get("@getStoredLocation").should("have.been.called");
+  });
 });
